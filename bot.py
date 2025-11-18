@@ -15,7 +15,7 @@ MOVIE_CHANNEL_ID = os.getenv('MOVIE_CHANNEL_ID', '-1003134037650')
 INSTAGRAM_LINK = os.getenv('INSTAGRAM_LINK', 'https://instagram.com/your_profile')
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 # Database funksiyalari
 def init_db():
