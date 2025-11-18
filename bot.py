@@ -8,14 +8,13 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
-from dotenv import load_dotenv
+from aiohttp import web
 
 # Loggerni sozlash
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Environment variables
-load_dotenv()
 TOKEN = os.getenv('TOKEN')
 ADMIN_ID = os.getenv('ADMIN_ID')
 
@@ -731,7 +730,25 @@ async def set_movie_channel_cmd(message: Message):
         await message.answer(f"❌ *Kanal topilmadi yoki bot kanalga kirish huquqiga ega emas!*\nXato: {str(e)}", 
                            parse_mode=ParseMode.MARKDOWN)
 
+# Health check uchun web server
+async def health_check(request):
+    return web.Response(text="OK")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/health', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.environ.get('PORT', 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logger.info(f"Health check server started on port {port}")
+
 async def main():
+    # Web server va botni birga ishga tushirish
+    await start_web_server()
+    
     try:
         logger.info("🤖 Bot ishga tushdi...")
         await dp.start_polling(bot)
