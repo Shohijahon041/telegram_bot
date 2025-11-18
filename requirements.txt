@@ -1,4 +1,2 @@
-# requirements.txt fayl yaratishingiz kerak:
 aiogram==3.10.0
-sqlite3
 python-dotenv
