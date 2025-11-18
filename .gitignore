@@ -1,3 +1,15 @@
 __pycache__/
-kino.db
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
 .env
+kino.db
+*.sqlite3
+.DS_Store
+.idea/
+.vscode/
+*.log
