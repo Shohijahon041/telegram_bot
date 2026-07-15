@@ -36,13 +36,16 @@ async def command_start_handler(message: types.Message) -> None:
         f"Kino botingiz muvaffaqiyatli ishga tushdi va Render platformasida webhook orqali faol ishlamoqda!"
     )
 
+# BOSH SAHIFA UCHUN HANDLER (UptimeRobot ping yuborganda 200 OK qaytaradi)
+async def index_handler(request):
+    return web.Response(text="Bot is active and running! 🚀", content_type="text/plain")
+
 # Bot ishga tushganda webhookni Telegram tizimida ro'yxatdan o'tkazish
 async def on_startup(bot: Bot) -> None:
     logging.info(f"Webhook sozlanmoqda: {BASE_URL}")
     await bot.set_webhook(url=BASE_URL)
 
 def main() -> None:
-    # YANGI AIOGRAM STANDARTI: parse_mode'ni DefaultBotProperties orqali uzatamiz
     bot = Bot(
         token=TOKEN, 
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
@@ -53,6 +56,9 @@ def main() -> None:
 
     # aiohttp veb-server dasturini yaratish
     app = web.Application()
+
+    # Bosh sahifa yo'lagini ro'yxatdan o'tkazish (http://...onrender.com/)
+    app.router.add_get('/', index_handler)
 
     # Webhook so'rovlarini boshqaruvchi handler
     webhook_requests_handler = SimpleRequestHandler(
