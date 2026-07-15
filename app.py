@@ -3,6 +3,7 @@ import logging
 import sys
 from aiohttp import web
 from aiogram import Bot, Dispatcher, Router, types
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import Update
@@ -41,8 +42,11 @@ async def on_startup(bot: Bot) -> None:
     await bot.set_webhook(url=BASE_URL)
 
 def main() -> None:
-    # Bot obyektini yaratish
-    bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+    # YANGI AIOGRAM STANDARTI: parse_mode'ni DefaultBotProperties orqali uzatamiz
+    bot = Bot(
+        token=TOKEN, 
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+    )
 
     # Ishga tushish funksiyasini ulash
     dp.startup.register(on_startup)
