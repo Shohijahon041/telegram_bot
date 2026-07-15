@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher, Router, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 # 1. Muhit o'zgaruvchilarini Render panelidan o'qib olish
 TOKEN = os.getenv("KINO_BOT_TOKEN")
@@ -32,6 +33,10 @@ async def command_start_handler(message: types.Message) -> None:
         f"Kino kodini yuboring va men uni kanaldan topib beraman!"
     )
 
+# BOSH SAHIFA UCHUN HANDLER (UptimeRobot uchun 200 OK qaytaradi va uxlashdan asraydi)
+async def index_handler(request):
+    return web.Response(text="Bot is active and running! 🚀", content_type="text/plain")
+
 # Foydalanuvchi kod (raqam) yuborganda ishlaydigan qidiruv tizimi
 @router.message()
 async def search_movie_in_channel(message: types.Message, bot: Bot) -> None:
@@ -41,10 +46,9 @@ async def search_movie_in_channel(message: types.Message, bot: Bot) -> None:
     if msg_text.isdigit():
         try:
             # Kanaldagi xabar ID-si foydalanuvchi yuborgan kodga teng deb olamiz
-            # Ya'ni kino kodi = kanaldagi post ID-si
             movie_message_id = int(msg_text) 
             
-            # AIOGRAM 3.x STANDARTI: Xabarni foydalanuvchiga yo'naltirish (Forward)
+            # Xabarni foydalanuvchiga yo'naltirish (Forward)
             await bot.forward_message(
                 chat_id=message.chat.id,
                 from_chat_id=CHANNEL_ID,
@@ -57,10 +61,6 @@ async def search_movie_in_channel(message: types.Message, bot: Bot) -> None:
     else:
         await message.answer("Iltimos, kino yuklab olish uchun faqat kino kodini (raqam) kiriting.")
 
-# Bosh sahifa (UptimeRobot uchun 200 OK qaytaradi)
-async def index_handler(request):
-    return web.Response(text="Bot is active and running! 🚀", content_type="text/plain")
-
 async def on_startup(bot: Bot) -> None:
     logging.info(f"Webhook sozlanmoqda: {BASE_URL}")
     await bot.set_webhook(url=BASE_URL)
@@ -70,6 +70,8 @@ def main() -> None:
     dp.startup.register(on_startup)
 
     app = web.Application()
+    
+    # Bosh sahifa yo'lagini ulash
     app.router.add_get('/', index_handler)
 
     webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
