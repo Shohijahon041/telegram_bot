@@ -2,6 +2,7 @@ import os
 import logging
 import sys
 import re
+import asyncio
 from datetime import datetime
 from aiohttp import web
 from aiogram import Bot, Dispatcher, Router, types, F
@@ -21,8 +22,8 @@ PORT = int(os.getenv("PORT", 8000))
 # Admin Telegram ID-ingiz
 ADMIN_ID = 5372439160  
 
-# Ikki nuqtasiz xavfsiz va toza webhook yo'li
-WEBHOOK_PATH = "/tg_webhook_secure"
+# Webhook yo'lini oddiy va xatosiz qilamiz
+WEBHOOK_PATH = "/webhook"
 BASE_URL = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -133,6 +134,7 @@ async def cb_admin(callback: types.CallbackQuery):
 # FORWARD BO'LGAN KINOLARNI QABUL QILISH VA BAZAGA YOZISH
 @router.message(F.video | F.document)
 async def process_admin_movie_forward(message: types.Message, bot: Bot):
+    # Har doim ADMIN yuborganini chat darajasida qat'iy tekshiramiz
     if message.chat.id != ADMIN_ID:
         return
 
@@ -148,7 +150,7 @@ async def process_admin_movie_forward(message: types.Message, bot: Bot):
         else:
             channel_msg = await bot.send_document(chat_id=CHANNEL_CHAT_ID, document=message.document.file_id, caption=new_caption, parse_mode=ParseMode.MARKDOWN)
 
-        # Muvaffaqiyatli saqlash
+        # Muvaffaqiyatli MongoDB ga yozish
         await movies_collection.update_one(
             {"movie_code": new_code},
             {
@@ -191,7 +193,9 @@ async def index_handler(request):
     return web.Response(text="Bot runs perfectly! 🚀", content_type="text/plain")
 
 async def on_startup(bot: Bot) -> None:
-    # Telegramga yangi xavfsiz manzilni o'rnatamiz
+    # ⚠️ MUHIM: Telegramga eski noto'g'ri webhooklarni o'chirishni va yangisini o'rnatishni buyuramiz
+    await bot.delete_webhook(drop_pending_updates=True)
+    await asyncio.sleep(1)
     await bot.set_webhook(url=BASE_URL)
 
 def main() -> None:
