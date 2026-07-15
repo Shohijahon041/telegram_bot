@@ -21,7 +21,7 @@ PORT = int(os.getenv("PORT", 8000))
 # Admin Telegram ID-ingiz
 ADMIN_ID = 5372439160
 
-# Telegram hozir urilayotgan aynan o'sha manzilni qabul qilamiz!
+# Webhook yo'li
 WEBHOOK_PATH = f"/{TOKEN}"
 BASE_URL = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
 
@@ -49,7 +49,7 @@ async def get_next_movie_code() -> str:
         upsert=True,
         return_document=True
     )
-    if counter.get("sequence_value") == 1:
+    if not counter or counter.get("sequence_value") == 1:
         await counters_collection.update_one({"_id": "movie_code"}, {"$set": {"sequence_value": 3765}})
         return "3765"
     return str(counter["sequence_value"])
@@ -202,22 +202,28 @@ async def search_movie_handler(message: types.Message, bot: Bot) -> None:
     else:
         await message.answer("Iltimos, faqat kino kodini (raqam) yuboring.")
 
+# WEBHOOK STARTUP SOZLAMALARI
+async def on_startup(app: web.Application) -> None:
+    bot: Bot = app['bot']
+    await bot.set_webhook(url=BASE_URL)
+
 async def index_handler(request):
     return web.Response(text="Bot runs perfectly! 🚀", content_type="text/plain")
 
-async def on_startup(bot: Bot) -> None:
-    await bot.set_webhook(url=BASE_URL)
-
 def main() -> None:
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp.startup.register(on_startup)
     
     app = web.Application()
+    app['bot'] = bot  # Bot obyektini app ichiga saqlaymiz
+    
     app.router.add_get('/', index_handler)
     
-    # SimpleRequestHandler orqali webhook ro'yxatdan o'tkazamiz
+    # Webhook handler
     webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
     webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+    
+    # Startup signalini to'g'ri ulash
+    app.on_startup.append(on_startup)
     
     setup_application(app, dp, bot=bot)
     web.run_app(app, host="0.0.0.0", port=PORT)
