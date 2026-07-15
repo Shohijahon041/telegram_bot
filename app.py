@@ -3,15 +3,15 @@ from flask import Flask, request
 import telebot
 
 # Environment Variables (Muhit o'zgaruvchilari) orqali ma'lumotlarni olamiz
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
+KINO_BOT_TOKEN = os.environ.get('BOT_TOKEN')
 # Render sizga beradigan sayt manzili (masalan: https://mening-botim.onrender.com)
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(KINO_BOT_TOKEN)
 app = Flask(__name__)
 
 # Telegram'dan keladigan xabarlarni qabul qilish
-@app.route('/' + BOT_TOKEN, methods=['POST'])
+@app.route('/' + KINO_BOT_TOKEN, methods=['POST'])
 def getMessage():
     json_string = request.get_data().decode('utf-8')
     update = telebot.types.Update.de_json(json_string)
@@ -23,7 +23,7 @@ def getMessage():
 def webhook():
     bot.remove_webhook()
     # Webhook manzilini Telegram'ga bog'laymiz
-    bot.set_webhook(url=WEBHOOK_URL + '/' + BOT_TOKEN)
+    bot.set_webhook(url=WEBHOOK_URL + '/' + KINO_BOT_TOKEN)
     return "Webhook muvaffaqiyatli sozlandi va bot faol!", 200
 
 # --- BOT FUNKSIYALARI (Buyruqlar) ---
