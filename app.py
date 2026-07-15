@@ -8,31 +8,34 @@ from aiogram.filters import CommandStart
 from aiogram.types import Update
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
-# 1. Muhit o'zgaruvchilarini Render'dan o'qib olish
+# 1. Muhit o'zgaruvchilarini Render panelidan o'qib olish
 TOKEN = os.getenv("KINO_BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-# Render avtomatik taqdim etadigan PORT (bepul tarifda odatda 10000 yoki o'zgaruvchan)
+# Render avtomatik ravishda PORT taqdim etadi
 PORT = int(os.getenv("PORT", 8000))
 
-# Webhook yo'lagi (Telegram yangiliklarni shu manzilga yuboradi)
+# Webhook manzili (Telegram bot yangiliklarni shu yo'lga yuboradi)
 WEBHOOK_PATH = "/webhook"
 BASE_URL = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
 
-# Logger sozlamalari (Render jurnallarida xatoliklarni ko'rish uchun)
+# Loglarni Render konsolida ko'rish uchun sozlama
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
-# Bot va Routerlarni yaratish
+# Bot, Router va Dispatcherlarni sozlash
 router = Router()
 dp = Dispatcher()
 dp.include_router(router)
 
-# /start komandasi uchun handler
+# /start buyrug'i kelganda ishlaydigan kod
 @router.message(CommandStart())
 async def command_start_handler(message: types.Message) -> None:
-    await message.answer(f"Salom, {message.from_user.full_name}! Kino bot muvaffaqiyatli ulindi va Render'da ishlamoqda! 🎬")
+    await message.answer(
+        f"Salom, {message.from_user.full_name}! 🎬\n\n"
+        f"Kino botingiz muvaffaqiyatli ishga tushdi va Render platformasida webhook orqali faol ishlamoqda!"
+    )
 
-# Bot ishga tushganda bajariladigan funksiya (Webhookni Telegramga ro'yxatdan o'tkazish)
+# Bot ishga tushganda webhookni Telegram tizimida ro'yxatdan o'tkazish
 async def on_startup(bot: Bot) -> None:
     logging.info(f"Webhook sozlanmoqda: {BASE_URL}")
     await bot.set_webhook(url=BASE_URL)
@@ -41,25 +44,24 @@ def main() -> None:
     # Bot obyektini yaratish
     bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
 
-    # Dispatcherga start funksiyasini biriktirish
+    # Ishga tushish funksiyasini ulash
     dp.startup.register(on_startup)
 
-    # aiohttp veb ilovasini yaratish
+    # aiohttp veb-server dasturini yaratish
     app = web.Application()
 
-    # Telegram so'rovlarini qayta ishlovchi handler
+    # Webhook so'rovlarini boshqaruvchi handler
     webhook_requests_handler = SimpleRequestHandler(
         dispatcher=dp,
         bot=bot
     )
-    # So'rov keladigan yo'lakni ro'yxatdan o'tkazish
     webhook_requests_handler.register(app, path=WEBHOOK_PATH)
 
-    # Ilovaga bot va dispatcher muhitini sozlash
+    # Dispatcher va bot sozlamalarini aiohttp'ga ulash
     setup_application(app, dp, bot=bot)
 
-    # Render talab qiladigan port va hostda serverni ishga tushirish
-    logging.info(f"Server {PORT}-portda ishga tushmoqda...")
+    # Render uchun maxsus portda serverni ishga tushirish
+    logging.info(f"Server {PORT}-portda faollashtirilmoqda...")
     web.run_app(app, host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
