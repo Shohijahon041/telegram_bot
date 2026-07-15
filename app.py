@@ -19,7 +19,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 PORT = int(os.getenv("PORT", 8000))
 
 # Admin Telegram ID-ingiz
-ADMIN_ID = 5372439160  
+ADMIN_ID = 5372439160
 
 # Telegram hozir urilayotgan aynan o'sha manzilni qabul qilamiz!
 WEBHOOK_PATH = f"/{TOKEN}"
@@ -39,7 +39,7 @@ dp = Dispatcher()
 dp.include_router(router)
 
 CHANNEL_CHAT_ID = "@super_kino_yukla_film"
-BOT_LINK = "https://t.me/super_kino_yukla_bot" 
+BOT_LINK = "https://t.me/super_kino_yukla_bot"
 
 # KINO KODINI AVTOMATIK GENERATSIYA QILISH
 async def get_next_movie_code() -> str:
@@ -62,7 +62,8 @@ async def register_user(user: types.User):
             "username": user.username or "No Username",
             "full_name": user.full_name,
             "last_active": datetime.utcnow()
-        }, "$setOnInsert": {"joined_at": datetime.utcnow(), "searches": []}},
+        },
+        "$setOnInsert": {"joined_at": datetime.utcnow(), "searches": []}},
         upsert=True
     )
 
@@ -76,7 +77,7 @@ def format_caption(text: str, code: str) -> str:
     
     title = lines[0] if lines else "Yangi Film"
     title = re.sub(r'[^\w\s\d\-\(\)\[\]«»"\'\.\,а-яА-ЯёЁўқғҳЎҚҒҲ]', '', title).strip()
-
+    
     yili = re.search(r'(?:Yili|Yil):\s*([^\n]+)', clean_text, re.IGNORECASE)
     tili = re.search(r'(?:Tili|Til):\s*([^\n]+)', clean_text, re.IGNORECASE)
     janri = re.search(r'(?:Janri|Janr):\s*([^\n]+)', clean_text, re.IGNORECASE)
@@ -89,16 +90,16 @@ def format_caption(text: str, code: str) -> str:
     else:
         tavsif = re.search(r'(?:Tavsif|Tavsifi):\s*([^\n]+)', clean_text, re.IGNORECASE)
         tavsif_text = tavsif.group(1).strip() if tavsif else "Ajoyib kino, tomosha qilishni tavsiya etamiz!"
-
+        
     return (
         f"🎬 **{title}**\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"🔑 **Kino Kodi:** `{code}`\n"
-        f"📅 **Yili:** {yili.group(1).strip() if yili else 'Noma`lum'}\n"
-        f"🇺🇿 **Tili:** {tili.group(1).strip() if tili else 'O`zbekcha'}\n"
+        f"📅 **Yili:** {yili.group(1).strip() if yili else 'Nomalum'}\n"
+        f"🇺🇿 **Tili:** {tili.group(1).strip() if tili else 'O\'zbekcha'}\n"
         f"🎭 **Janri:** {janri.group(1).strip() if janri else 'Drama, Sarguzasht'}\n"
         f"💿 **Sifati:** {sifati.group(1).strip() if sifati else '720p HD'}\n"
-        f"💾 **Hajmi:** {hajmi.group(1).strip() if hajmi else 'Noma`lum'}\n"
+        f"💾 **Hajmi:** {hajmi.group(1).strip() if hajmi else 'Nomalum'}\n"
         f"⭐️ **Bahosi:** {bahosi.group(1).strip() if bahosi else 'Yaxshi 🍿'}\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📝 **Tavsif:** {tavsif_text}\n\n"
@@ -125,7 +126,8 @@ async def cb_profile(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == "btn_admin")
 async def cb_admin(callback: types.CallbackQuery):
-    if callback.from_user.id != ADMIN_ID: return
+    if callback.from_user.id != ADMIN_ID:
+        return
     users_count = await users_collection.count_documents({})
     movies_count = await movies_collection.count_documents({})
     await callback.message.edit_text(f"📊 **Admin Panel:**\n\n👥 A'zolar: {users_count} ta\n🎬 Kinolar: {movies_count} ta")
@@ -133,40 +135,48 @@ async def cb_admin(callback: types.CallbackQuery):
 # KINONI QABUL QILISH VA BAZAGA SAQLASH
 @router.message(F.video | F.document)
 async def process_admin_movie_forward(message: types.Message, bot: Bot):
-    if message.chat.id != ADMIN_ID:
+    if message.from_user.id != ADMIN_ID:
         return
-
+        
     old_caption = message.caption or ""
     new_code = await get_next_movie_code()
     new_caption = format_caption(old_caption, new_code)
     
     status_msg = await message.answer(f"⏳ Kino kanalga va bazaga yuklanmoqda...")
-
+    
     try:
         if message.video:
-            channel_msg = await bot.send_video(chat_id=CHANNEL_CHAT_ID, video=message.video.file_id, caption=new_caption, parse_mode=ParseMode.MARKDOWN)
+            channel_msg = await bot.send_video(
+                chat_id=CHANNEL_CHAT_ID, 
+                video=message.video.file_id, 
+                caption=new_caption, 
+                parse_mode=ParseMode.MARKDOWN
+            )
         else:
-            channel_msg = await bot.send_document(chat_id=CHANNEL_CHAT_ID, document=message.document.file_id, caption=new_caption, parse_mode=ParseMode.MARKDOWN)
-
+            channel_msg = await bot.send_document(
+                chat_id=CHANNEL_CHAT_ID, 
+                document=message.document.file_id, 
+                caption=new_caption, 
+                parse_mode=ParseMode.MARKDOWN
+            )
+        
         # Muvaffaqiyatli saqlash
         await movies_collection.update_one(
             {"movie_code": new_code},
-            {
-                "$set": {
-                    "text": new_caption,
-                    "message_id": channel_msg.message_id,
-                    "file_id": message.video.file_id if message.video else message.document.file_id,
-                    "created_at": datetime.utcnow()
-                },
-                "$addToSet": {"message_ids": channel_msg.message_id}
+            {"$set": {
+                "text": new_caption,
+                "message_id": channel_msg.message_id,
+                "file_id": message.video.file_id if message.video else message.document.file_id,
+                "created_at": datetime.utcnow()
             },
+            "$addToSet": {"message_ids": channel_msg.message_id}},
             upsert=True
         )
         await status_msg.edit_text(f"✅ Muvaffaqiyatli bajarildi!\n🔑 Kino Kodi: `{new_code}`\n📡 Baza va kanalga saqlandi!")
         
     except Exception as e:
         logging.error(f"Xatolik: {e}")
-        await status_msg.edit_text(f"❌ Xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.")
+        await status_msg.edit_text(f"❌ Xatolik yuz berdi. Matnda taqiqlangan belgilar bo'lishi mumkin yoki bot kanalda admin emas. Batafsil terminalda.")
 
 @router.message()
 async def search_movie_handler(message: types.Message, bot: Bot) -> None:
@@ -176,12 +186,17 @@ async def search_movie_handler(message: types.Message, bot: Bot) -> None:
     if msg_text.isdigit():
         movie = await movies_collection.find_one({"movie_code": msg_text})
         if movie:
-            await users_collection.update_one({"user_id": user_id}, {"$addToSet": {"searches": msg_text}, "$set": {"last_active": datetime.utcnow()}})
+            await users_collection.update_one(
+                {"user_id": user_id},
+                {"$addToSet": {"searches": msg_text}, "$set": {"last_active": datetime.utcnow()}}
+            )
             message_ids = movie.get("message_ids", [movie.get("message_id")])
             for msg_id in message_ids:
                 if msg_id:
-                    try: await bot.copy_message(chat_id=user_id, from_chat_id=CHANNEL_CHAT_ID, message_id=msg_id, protect_content=True)
-                    except: pass
+                    try:
+                        await bot.copy_message(chat_id=user_id, from_chat_id=CHANNEL_CHAT_ID, message_id=msg_id, protect_content=True)
+                    except:
+                        pass
         else:
             await message.answer("😔 Kechirasiz, ushbu kod bilan kino topilmadi.")
     else:
@@ -196,15 +211,15 @@ async def on_startup(bot: Bot) -> None:
 def main() -> None:
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp.startup.register(on_startup)
-
+    
     app = web.Application()
     app.router.add_get('/', index_handler)
-
-    # SimpleRequestHandler orqali aynan /{TOKEN} (eski 404 berayotgan) manzilni ro'yxatdan o'tkazamiz
+    
+    # SimpleRequestHandler orqali webhook ro'yxatdan o'tkazamiz
     webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
     webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+    
     setup_application(app, dp, bot=bot)
-
     web.run_app(app, host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
