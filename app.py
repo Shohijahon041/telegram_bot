@@ -18,7 +18,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 MONGO_URI = os.getenv("MONGO_URI")
 PORT = int(os.getenv("PORT", 8000))
 
-# Shaxsiy Telegram ID-ingiz
+# Admin Telegram ID-ingiz
 ADMIN_ID = 5372439160  
 
 WEBHOOK_PATH = "/webhook"
@@ -38,6 +38,9 @@ dp = Dispatcher()
 dp.include_router(router)
 
 CHANNEL_CHAT_ID = "@super_kino_yukla_film"
+
+# Botingizning havolasi (Matndagi eski linklar o'rniga shu qo'yiladi)
+BOT_LINK = "https://t.me/super_kino_yukla_bot" 
 
 # KINO KODINI AVTOMATIK GENERATSIYA QILISH
 async def get_next_movie_code() -> str:
@@ -64,10 +67,21 @@ async def register_user(user: types.User):
         upsert=True
     )
 
-# MATNNI TARTIBLI VA CHIROYLI QOLIPGA SOLISH
+# MATNNI TOZALASH, LINKLARNI ALMASHTIRISH VA CHIROYLI FORMATLASH
 def format_caption(text: str, code: str) -> str:
-    clean_text = re.sub(r'https?://\S+|@\S+', '', text)
+    if not text:
+        return f"🎬 **Yangi Film**\n🔑 **Kino Kodi:** `{code}`\n\n📥 Botdan yuklash: {BOT_LINK}"
     
+    # 1. Eski havolalar, kanallar va usernames (@belgisi bilan boshlangan) o'chiriladi
+    clean_text = re.sub(r'https?://\S+|www\.\S+|@\S+', '', text)
+    
+    # Qatorlarga ajratib olamiz
+    lines = [line.strip() for line in clean_text.split('\n') if line.strip()]
+    
+    # Kino nomini aniqlash (Birinchi qatordagi barcha matn nomi deb olinadi)
+    title = lines[0] if lines else "Yangi Film"
+    
+    # Kerakli ma'lumotlarni qidirish
     yili = re.search(r'(?:Yili|Yil):\s*([^\n]+)', clean_text, re.IGNORECASE)
     tili = re.search(r'(?:Tili|Til):\s*([^\n]+)', clean_text, re.IGNORECASE)
     janri = re.search(r'(?:Janri|Janr):\s*([^\n]+)', clean_text, re.IGNORECASE)
@@ -75,10 +89,6 @@ def format_caption(text: str, code: str) -> str:
     hajmi = re.search(r'(?:Hajmi|Hajm):\s*([^\n]+)', clean_text, re.IGNORECASE)
     bahosi = re.search(r'(?:Bahosi|Reyting):\s*([^\n]+)', clean_text, re.IGNORECASE)
     tavsif = re.search(r'(?:Tavsif|Tavsifi):\s*([^\n]+)', clean_text, re.IGNORECASE)
-    
-    title_line = clean_text.split('\n')[0] if clean_text else "Yangi Film"
-    # Sarlavhadan faqat harf va raqamlarni qoldiramiz (xavfsiz regex)
-    title = re.sub(r'[^a-zA-Z0-9 oOа-яА-ЯёЁ]', '', title_line).strip()
 
     return (
         f"🎬 **{title}**\n"
@@ -92,7 +102,7 @@ def format_caption(text: str, code: str) -> str:
         f"⭐️ **Bahosi:** {bahosi.group(1).strip() if bahosi else 'Yaxshi 🍿'}\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📝 **Tavsif:** {tavsif.group(1).strip() if tavsif else 'Ajoyib kino, tomosha qilishni tavsiya etamiz!'}\n\n"
-        f"📥 Botdan yuklash uchun kodni yuboring!"
+        f"📥 Kinoni yuklab olish uchun botimizga kiring:\n👉 {BOT_LINK}"
     )
 
 # /START BUYRUG'I
@@ -113,7 +123,7 @@ async def command_start_handler(message: types.Message) -> None:
         reply_markup=builder.as_markup()
     )
 
-# INLINE TUGMALAR (CALLBACKS)
+# INLINE BUTTON HANDLERS
 @router.callback_query(F.data == "btn_profile")
 async def cb_profile(callback: types.CallbackQuery):
     user = await users_collection.find_one({"user_id": callback.from_user.id})
@@ -161,17 +171,21 @@ async def send_all_handler(message: types.Message, bot: Bot) -> None:
             failed += 1
     await message.answer(f"📢 Reklama yakunlandi:\n✅ Yetkazildi: {success}\n❌ Taqiqlangan/Xato: {failed}")
 
-# ADMIN BOTGA KINO FORWARD QILGANDA AVTOMATIK TAHRIRLAB KANALGA TASHLLASH
+# 🚀 FORWARD BO'LGAN KINOLARNI QABUL QILIB, TAHRIRLAB KANALGA VA BAZAGA YUBORISH
 @router.message(F.video | F.document)
 async def process_admin_movie_forward(message: types.Message, bot: Bot):
     if message.from_user.id != ADMIN_ID:
         return
 
     old_caption = message.caption or ""
+    
+    # Avtomatik ravishda yangi unikal kod generatsiya qilish
     new_code = await get_next_movie_code()
+    
+    # Matndagi linklarni o'chirib, o'z botingiznikini qo'yish va nomini birinchi qatordan olish
     new_caption = format_caption(old_caption, new_code)
     
-    await message.answer(f"⏳ Kino qabul qilindi. Avtomatik kod berildi: `{new_code}`. Kanalga yuborilmoqda...")
+    await message.answer(f"⏳ Kino qabul qilindi. Avtomatik kod berildi: `{new_code}`. Kanalga va bazaga yuklanmoqda...")
 
     try:
         if message.video:
@@ -189,21 +203,25 @@ async def process_admin_movie_forward(message: types.Message, bot: Bot):
                 parse_mode=ParseMode.MARKDOWN
             )
 
+        # 🚀 BU YERDA KINO BAZAGA YOZILADI
         await movies_collection.update_one(
             {"movie_code": new_code},
             {
-                "$set": {"text": new_caption},
+                "$set": {
+                    "text": new_caption,
+                    "message_id": channel_msg.message_id
+                },
                 "$addToSet": {"message_ids": channel_msg.message_id}
             },
             upsert=True
         )
-        await message.answer(f"✅ Muvaffaqiyatli bajarildi! Kod: `{new_code}`")
+        await message.answer(f"✅ Muvaffaqiyatli bajarildi!\n🔑 Kod: `{new_code}`\n📡 Kanalga va bazaga muvaffaqiyatli saqlandi.")
         
     except Exception as e:
-        logging.error(f"Kanalga yuborishda xato: {e}")
+        logging.error(f"Kanalga yuborishda yoki bazaga saqlashda xato: {e}")
         await message.answer(f"❌ Xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.")
 
-# FOYDALANUVCHILAR QIDIRGANDA KINONI YUBORISH (FORWARD TAQIQLANGAN)
+# FOYDALANUVCHILAR QIDIRGANDA KINONI YUBORISH
 @router.message()
 async def search_movie_handler(message: types.Message, bot: Bot) -> None:
     msg_text = message.text.strip()
@@ -239,7 +257,7 @@ async def search_movie_handler(message: types.Message, bot: Bot) -> None:
         await message.answer("Iltimos, faqat kino kodini (raqam) yuboring.")
 
 async def index_handler(request):
-    return web.Response(text="Bot Upgraded Successfully! 🚀", content_type="text/plain")
+    return web.Response(text="Bot Active & Stable! 🚀", content_type="text/plain")
 
 async def on_startup(bot: Bot) -> None:
     await bot.set_webhook(url=BASE_URL)
