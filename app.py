@@ -21,8 +21,8 @@ PORT = int(os.getenv("PORT", 8000))
 # Admin Telegram ID-ingiz
 ADMIN_ID = 5372439160  
 
-# Webhook yo'lini logdagi kabi tokenga moslab xavfsiz qilamiz
-WEBHOOK_PATH = f"/{TOKEN}"
+# Ikki nuqtasiz xavfsiz va toza webhook yo'li
+WEBHOOK_PATH = "/tg_webhook_secure"
 BASE_URL = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -39,8 +39,6 @@ dp = Dispatcher()
 dp.include_router(router)
 
 CHANNEL_CHAT_ID = "@super_kino_yukla_film"
-
-# Botingizning havolasi
 BOT_LINK = "https://t.me/super_kino_yukla_bot" 
 
 # KINO KODINI AVTOMATIK GENERATSIYA QILISH
@@ -132,20 +130,9 @@ async def cb_admin(callback: types.CallbackQuery):
     movies_count = await movies_collection.count_documents({})
     await callback.message.edit_text(f"📊 **Admin Panel:**\n\n👥 A'zolar: {users_count} ta\n🎬 Kinolar: {movies_count} ta")
 
-@router.message(Command("send"))
-async def send_all_handler(message: types.Message, bot: Bot) -> None:
-    if message.from_user.id != ADMIN_ID: return
-    text_to_send = message.text.replace("/send", "").strip()
-    if not text_to_send: return
-    async for user in users_collection.find({}):
-        try: await bot.send_message(chat_id=user["user_id"], text=text_to_send)
-        except: pass
-    await message.answer("📢 Reklama yakunlandi.")
-
-# FORWARD BO'LGAN KINOLARNI QABUL QILISH VA BAZAGA METIN BILAN YOZISH
+# FORWARD BO'LGAN KINOLARNI QABUL QILISH VA BAZAGA YOZISH
 @router.message(F.video | F.document)
 async def process_admin_movie_forward(message: types.Message, bot: Bot):
-    # Chat ID bo'yicha adminlikni aniq tekshiramiz
     if message.chat.id != ADMIN_ID:
         return
 
@@ -161,7 +148,7 @@ async def process_admin_movie_forward(message: types.Message, bot: Bot):
         else:
             channel_msg = await bot.send_document(chat_id=CHANNEL_CHAT_ID, document=message.document.file_id, caption=new_caption, parse_mode=ParseMode.MARKDOWN)
 
-        # Hujjat yoki videoni bazaga yozamiz
+        # Muvaffaqiyatli saqlash
         await movies_collection.update_one(
             {"movie_code": new_code},
             {
@@ -204,6 +191,7 @@ async def index_handler(request):
     return web.Response(text="Bot runs perfectly! 🚀", content_type="text/plain")
 
 async def on_startup(bot: Bot) -> None:
+    # Telegramga yangi xavfsiz manzilni o'rnatamiz
     await bot.set_webhook(url=BASE_URL)
 
 def main() -> None:
@@ -213,7 +201,6 @@ def main() -> None:
     app = web.Application()
     app.router.add_get('/', index_handler)
 
-    # Webhook pathini to'g'rilaymiz
     webhook_requests_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
     webhook_requests_handler.register(app, path=WEBHOOK_PATH)
     setup_application(app, dp, bot=bot)
