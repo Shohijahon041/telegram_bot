@@ -3,7 +3,7 @@ from flask import Flask, request
 import telebot
 
 # Environment Variables (Muhit o'zgaruvchilari) orqali ma'lumotlarni olamiz
-KINO_BOT_TOKEN = os.environ.get('BOT_TOKEN')
+KINO_BOT_TOKEN = os.environ.get('KINO_BOT_TOKEN')
 # Render sizga beradigan sayt manzili (masalan: https://mening-botim.onrender.com)
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
 
