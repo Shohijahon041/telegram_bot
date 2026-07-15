@@ -1,7 +1,6 @@
 import os
 import logging
 import sys
-import re
 from aiohttp import web
 from aiogram import Bot, Dispatcher, Router, types
 from aiogram.client.default import DefaultBotProperties
@@ -22,11 +21,10 @@ router = Router()
 dp = Dispatcher()
 dp.include_router(router)
 
-# 📣 SIZNING KANALINGIZ USERNAME yoki ID-SI
-# Diqqat: Bot kanalga admin bo'lishi shart!
+# 📣 SIZNING KANALINGIZ USERNAME-SI (Bot kanalizda admin bo'lishi shart!)
 CHANNEL_ID = "@super_kino_yukla_film" 
 
-# /start buyrug'i
+# /start buyrug'i kelganda
 @router.message(CommandStart())
 async def command_start_handler(message: types.Message) -> None:
     await message.answer(
@@ -34,69 +32,32 @@ async def command_start_handler(message: types.Message) -> None:
         f"Kino kodini yuboring va men uni kanaldan topib beraman!"
     )
 
-# Foydalanuvchi kod yuborganda ishlaydigan asosiy qidiruv tizimi
+# Foydalanuvchi kod (raqam) yuborganda ishlaydigan qidiruv tizimi
 @router.message()
 async def search_movie_in_channel(message: types.Message, bot: Bot) -> None:
     msg_text = message.text.strip()
     
-    # Faqat raqamlardan iborat kod bo'lsa
+    # Faqat raqamlardan iborat kino kodi bo'lsa
     if msg_text.isdigit():
-        search_code = msg_text
-        await message.answer("🔍 Kino qidirilmoqda, iltimos kuting...")
-        
-        found = False
-        last_message_id = None
-        
         try:
-            # Kanaldagi oxirgi 100 ta xabarni tekshiramiz (bu sonni ko'paytirish mumkin)
-            # Murakkabroq qidiruv uchun kelajakda bazadan foydalanamiz, hozircha eng sodda usul:
-            for i in range(1, 200): # Oxirgi 200 ta xabarni skanerlash
-                try:
-                    # Xabarni ID bo'yicha olib ko'ramiz
-                    # Telegramda xabarlar ID ketma-ketligi bo'yicha boradi
-                    # Kanalning eng so'nggi xabarlaridan boshlab qidirish samarali
-                    pass
-                except Exception:
-                    continue
-
-            # DIQQAT: Telegram bot API orqali kanal ichidan to'g'ridan-to'g'ri matnli qidiruv cheklanganligi sababli,
-            # Eng to'g'ri va xatosiz ishlaydigan variant — Inline Query yoki xabarni to'g'ridan-to'g'ri ID bo'yicha bog'lash.
+            # Kanaldagi xabar ID-si foydalanuvchi yuborgan kodga teng deb olamiz
+            # Ya'ni kino kodi = kanaldagi post ID-si
+            movie_message_id = int(msg_text) 
             
-            # Agar siz kinolarni kanalga yuklaganingizda xabar havolasini (Link) bilsangiz juda oson bo'ladi.
-            # Kanaldan xabarlarni bittalab skanerlash botni sekinlashtiradi.
-            
-            # Keling, eng optimal yechimni qilamiz: 
-            # Botingiz kanaldan xabarlarni forward qilishi uchun bizga kanaldagi xabar ID-si kod bilan mos kelishi kerak.
-            # Masalan, kanaldagi xabar linki: t.me/super_kino_yukla_film/3764 bo'lsa, bot uni darhol topadi!
-            
-            # Agar sizda kod xabarning ID-siga to'g'ri kelmasa, bizga baribir kichik Baza kerak bo'ladi.
-            # Hozircha foydalanuvchiga yordam berish uchun qidiruv logikasini ishga tushiramiz:
-            
-            # Muqobil variant: Foydalanuvchi kod yuborganda, bot kanaldagi o'sha xabarni topib beradi.
-            # Hozircha siz kiritgan kod kanalda xabarning ID raqami bilan mos keladimi? 
-            # (Masalan, 3764-xabarmi u?)
-            
-            # Agar mos kelmasa, eng to'g'ri yo'l kodni Telegram kanalingizdagi xabar ID-siga moslab yuborish:
-            movie_message_id = int(search_code) 
-            
-            # Kanaldagi o'sha xabarni foydalanuvchiga yo'naltirish (Forward)
+            # AIOGRAM 3.x STANDARTI: Xabarni foydalanuvchiga yo'naltirish (Forward)
             await bot.forward_message(
                 chat_id=message.chat.id,
                 from_chat_id=CHANNEL_ID,
                 message_id=movie_message_id
             )
-            found = True
             
         except Exception as e:
-            logging.error(f"Xatolik yuz berdi: {e}")
-            
-        if not found:
-            await message.answer("😔 Kechirasiz, ushbu kod bilan kino topilmadi yoki bot kanalga admin qilinmagan.")
-            
+            logging.error(f"Kino topishda xatolik: {e}")
+            await message.answer("😔 Kechirasiz, ushbu kod bilan kino topilmadi yoki bot kanalga admin qilinmagan. Kodni to'g'ri kiritganingizni tekshiring.")
     else:
-        await message.answer("Iltimos, faqat kino kodini (raqam) kiriting.")
+        await message.answer("Iltimos, kino yuklab olish uchun faqat kino kodini (raqam) kiriting.")
 
-# Bosh sahifa (UptimeRobot uchun)
+# Bosh sahifa (UptimeRobot uchun 200 OK qaytaradi)
 async def index_handler(request):
     return web.Response(text="Bot is active and running! 🚀", content_type="text/plain")
 
